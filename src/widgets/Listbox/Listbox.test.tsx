@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { axe } from 'jest-axe';
 import { PropsWithChildren } from 'react';
@@ -50,6 +50,19 @@ describe('Listbox', () => {
 		options.forEach((option) => {
 			expect(screen.getByRole('option', { name: option })).toHaveAttribute('id');
 		});
+	});
+
+	it("When it is focused, the first option should automatically be focused", () => {
+		const options = ['Option 1', 'Option 2', 'Option 3'];
+		render(<Listbox options={options}/>);
+		expect(screen.getByRole('listbox')).not.toHaveAttribute('aria-activedescendant');
+
+		act(() => screen.getByRole('listbox').focus());
+
+		expect(screen.getByRole('listbox')).toHaveAttribute(
+			'aria-activedescendant', 
+			screen.getByRole('option', {name: 'Option 1'}).id
+		);
 	});
 
 	describe('Keyboard Navigation', () => {
