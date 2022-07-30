@@ -1,16 +1,32 @@
-import { KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { KeyboardEvent, MouseEventHandler, PropsWithChildren, useEffect, useMemo, useRef, useState } from 'react';
+import styled from '@emotion/styled';
 import { NavigationKeys } from '../../enums/NavigationKeys';
 
 export type ListboxProps = {
 	options: string[];
+	onSelect?: (value: string) => void,
 };
 
-export const Listbox: React.FC<ListboxProps> = ({ options }) => {
+class ListboxOption<T extends HTMLElement = HTMLLIElement> {
+
+	constructor(private nativeElement: T) {}
+
+	get id() {
+		return this.nativeElement.id;
+	}
+
+	getNativeElement() {
+		return this.nativeElement;
+	}
+}
+
+export const Listbox: React.FC<ListboxProps> = ({ options, onSelect }) => {
 	
 	const listboxRef = useRef<HTMLUListElement>(null);
 	const [ currentItem, setCurrentItem ] = useState<number>(-1);
+	const [ selectedItem, setSelectedItem ] = useState<number>(-1);
 	const [ currentItemId, setCurrentItemId ] = useState<string>();
-	const [ optionItems, setOptionItems ] = useState<HTMLLIElement[]>([]);
+	const [ optionItems, setOptionItems ] = useState<ListboxOption[]>([]);
 
 	const idPrefix = useMemo(() => 'listbox-'.concat(Date.now().toString()), []);
 	const labelId = idPrefix.concat('-label');
@@ -22,7 +38,11 @@ export const Listbox: React.FC<ListboxProps> = ({ options }) => {
 
 	const setupOptions = () => {
 		const nativeEl = getCurrentNativeElement();
-		setOptionItems(Array.from(nativeEl.querySelectorAll('[role="option"]')));
+		setOptionItems(
+			Array
+				.from(nativeEl.querySelectorAll<HTMLLIElement>('[role="option"]'))
+				.map((el) => new ListboxOption<HTMLLIElement>(el))
+		);
 	}
 
 	const getCurrentNativeElement = () => {
@@ -33,16 +53,20 @@ export const Listbox: React.FC<ListboxProps> = ({ options }) => {
 	const handleKeyDown = (e: KeyboardEvent<HTMLUListElement>) => {
 		switch (e.key) {
 			case NavigationKeys.Home:
-				setActiveOption(0);
+				setFocusedOption(0);
 				break;
 			case NavigationKeys.KeyUp:
-				setActiveOption(getPreviousOptionIndex());
+				setFocusedOption(getPreviousOptionIndex());
 				break;
 			case NavigationKeys.KeyDown:
-				setActiveOption(getNextOptionIndex());
+				setFocusedOption(getNextOptionIndex());
 				break;
 			case NavigationKeys.End:
-				setActiveOption(optionItems.length - 1);
+				setFocusedOption(optionItems.length - 1);
+				break;
+
+			case 'Enter':
+				commitSelection();
 				break;
 		}
 	}
@@ -57,10 +81,15 @@ export const Listbox: React.FC<ListboxProps> = ({ options }) => {
 		return currentItem + 1;
 	};
 
-	const setActiveOption = (index: number) => {
+	const setFocusedOption = (index: number) => {
 		setCurrentItemId(optionItems[index].id);
 		setCurrentItem(index);
 	};
+
+	const commitSelection = () => {
+		if (onSelect) onSelect(options[currentItem]);
+		setSelectedItem(currentItem);
+	}
 
 	return (
 		<div>
@@ -75,15 +104,48 @@ export const Listbox: React.FC<ListboxProps> = ({ options }) => {
 				aria-activedescendant={currentItemId}
 			>
 				{options.map((option, index) => (
-					<li
-						role='option'
+					<Option
 						id={idPrefix.concat(':').concat(index.toString())}
+						focused={currentItem === index}
+						selected={selectedItem === index}
+						onMouseOver={() => setFocusedOption(index)}
+						onClick={() => commitSelection()}
 						key={option}
 					>
 						{option}
-					</li>
+					</Option>
 				))}
 			</ul>
 		</div>
 	);
-}
+};
+
+const Option: React.FC<PropsWithChildren & {
+	id: string,
+	onMouseOver?: MouseEventHandler<HTMLLIElement>,
+	onClick?: MouseEventHandler<HTMLLIElement>,
+	focused?: boolean,
+	selected?: boolean,
+}> = ({ children, ...props }) => (
+	<Li
+		role='option'
+		aria-selected={Boolean(props.selected)}
+		{...props}
+	>
+		{children}
+	</Li>
+);
+
+
+const Li = styled('li')(
+	{
+		'&:hover': {
+			backgroundColor: '#e1e1e1',
+		}
+	},
+	({ focused, selected }: { focused?: boolean, selected?: boolean}) => ({
+		outline: focused ? '2px solid blue' : 0,
+		backgroundColor: focused ? '#e1e1e1' : undefined,
+		border: selected ? '5px dashed green' : undefined,
+	})
+)

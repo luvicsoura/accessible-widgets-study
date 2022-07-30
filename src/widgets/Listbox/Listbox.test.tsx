@@ -165,4 +165,28 @@ describe('Listbox', () => {
 			);
 		});
 	});
+
+	describe('onSelect', () => {
+		it("Given a function as onSelect, when the user presses 'Enter' with an option in focus, it should be called with the value of that option", () => {
+			const options = ['Option 1', 'Option 2', 'Option 3'];
+			const onSelect = jest.fn();
+			render(<Listbox options={options} onSelect={onSelect}/>);
+			userEvent.tab();
+
+			userEvent.keyboard('{ArrowUp}');
+			userEvent.keyboard('{Enter}');
+			
+			expect(onSelect).toHaveBeenCalledWith('Option 3');
+		});
+
+		it("Given the user clicks on one of the options, onSelect should be called with its value", () => {
+			const options = ['Option 1', 'Option 2', 'Option 3'];
+			const onSelect = jest.fn();
+			render(<Listbox options={options} onSelect={onSelect}/>);
+
+			userEvent.click(screen.getByRole('option', { name: 'Option 2'}));
+
+			expect(onSelect).toHaveBeenCalledWith('Option 2');
+		});
+	});
 });
